@@ -8,7 +8,12 @@ Two complementary corrections for selection bias in backtests:
   best in-sample fails to beat the median out-of-sample.
 """
 
-from .data import load_yfinance_strategies, make_synthetic_strategies
+from .data import (
+    NotEnoughStrategies,
+    load_yfinance_strategies,
+    make_synthetic_strategies,
+    prepare_returns,
+)
 from .deflated_sharpe import (
     DeflatedSharpeResult,
     deflated_sharpe_ratio,
@@ -41,4 +46,6 @@ __all__ = [
     "ReportResult",
     "make_synthetic_strategies",
     "load_yfinance_strategies",
+    "prepare_returns",
+    "NotEnoughStrategies",
 ]

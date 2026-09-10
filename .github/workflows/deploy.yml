@@ -32,6 +32,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
+      # The browser worker installs this wheel with micropip.  Without it the
+      # page can download Pyodide successfully, then fail at the last step and
+      # leave its controls disabled.
+      - name: Build browser wheel
+        run: python -m pip wheel --no-deps --wheel-dir site .
+
       - name: Build site
         run: python scripts/build_site.py site
 

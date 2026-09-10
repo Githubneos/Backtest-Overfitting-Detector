@@ -1,5 +1,9 @@
 # Backtest Overfitting Detector
 
+**[Try it in your browser](https://githubneos.github.io/Backtest-Overfitting-Detector/)**
+— upload your own returns or generate synthetic variants. It runs this package
+via Pyodide, so nothing you analyse is uploaded anywhere.
+
 A Sharpe ratio is not evidence of skill when it is the **maximum over many tried
 variants**. This package quantifies how much of a reported backtest result is
 selection bias, using two established techniques:

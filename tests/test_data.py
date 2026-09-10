@@ -1,7 +1,12 @@
 import numpy as np
+import pandas as pd
 import pytest
 
-from overfit_detector.data import make_synthetic_strategies
+from overfit_detector.data import (
+    NotEnoughStrategies,
+    make_synthetic_strategies,
+    prepare_returns,
+)
 
 
 def test_shape_and_column_names():
@@ -63,3 +68,49 @@ def test_yfinance_loader_is_importable_and_lazy():
     from overfit_detector import load_yfinance_strategies
 
     assert callable(load_yfinance_strategies)
+
+
+def test_prepare_returns_passes_clean_input_through():
+    frame = make_synthetic_strategies(n_strategies=4, n_periods=50, seed=3)
+    cleaned, notes = prepare_returns(frame)
+    assert notes == []
+    assert np.allclose(cleaned.to_numpy(), frame.to_numpy())
+
+
+def test_prepare_returns_drops_non_numeric_columns_and_says_so():
+    frame = pd.DataFrame({"a": [0.1, 0.2], "b": [0.3, 0.4], "label": ["x", "y"]})
+    cleaned, notes = prepare_returns(frame)
+    assert list(cleaned.columns) == ["a", "b"]
+    assert len(notes) == 1
+    assert "ignored 1 non-numeric column(s)" in notes[0]
+    assert "label" in notes[0]
+
+
+def test_prepare_returns_drops_nan_rows_and_says_so():
+    frame = pd.DataFrame({"a": [0.1, np.nan, 0.3], "b": [0.2, 0.4, 0.5]})
+    cleaned, notes = prepare_returns(frame)
+    assert len(cleaned) == 2
+    assert notes == ["dropped 1 rows containing NaNs"]
+
+
+def test_prepare_returns_drops_all_nan_columns_without_losing_rows():
+    frame = pd.DataFrame({"a": [0.1, 0.2], "b": [0.3, 0.4], "dead": [np.nan, np.nan]})
+    cleaned, notes = prepare_returns(frame)
+    assert list(cleaned.columns) == ["a", "b"]
+    assert len(cleaned) == 2  # the empty column goes before the NaN-row sweep
+    assert notes == []
+
+
+def test_prepare_returns_rejects_a_single_variant():
+    frame = pd.DataFrame({"only": [0.1, 0.2, 0.3]})
+    with pytest.raises(NotEnoughStrategies, match="need at least 2 strategy variants"):
+        prepare_returns(frame)
+
+
+def test_rejection_still_reports_what_was_discarded():
+    """The notes are usually the reason only one column survived."""
+    frame = pd.DataFrame({"only": [0.1, 0.2], "date": ["a", "b"], "note": ["c", "d"]})
+    with pytest.raises(NotEnoughStrategies) as excinfo:
+        prepare_returns(frame)
+    assert len(excinfo.value.notes) == 1
+    assert "ignored 2 non-numeric column(s)" in excinfo.value.notes[0]

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backtest Overfitting Detector</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>Backtest Overfitting Detector</h1>
+  <p class="subtitle">
+    How much of your best backtest survives the fact that you tried a lot of them?
+    Runs the Deflated Sharpe Ratio and the Probability of Backtest Overfitting
+    entirely in your browser &mdash; your data never leaves this machine.
+  </p>
+</header>
+
+<div id="boot" class="boot">
+  <div class="bar"><div id="boot-fill"></div></div>
+  <p id="boot-text">Starting&hellip;</p>
+  <p class="boot-note">
+    First visit downloads a ~30&nbsp;MB Python runtime, then it is cached.
+    You can set up an analysis or choose a CSV while it starts; Analyse unlocks
+    when it is ready. The results below are a pre-computed example until then.
+  </p>
+</div>
+
+<main>
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button id="tab-generate" class="tab active" role="tab">Generate strategies</button>
+      <button id="tab-upload" class="tab" role="tab">Upload a CSV</button>
+    </div>
+
+    <div id="pane-generate" class="pane">
+      <p class="hint">
+        Build synthetic variants with a known answer. With no signal, every
+        variant is luck &mdash; a good detector should say so.
+      </p>
+      <div class="grid">
+        <label>Variants
+          <input type="number" id="g-n_strategies" value="50" min="2" max="500" step="1">
+        </label>
+        <label>Periods
+          <input type="number" id="g-n_periods" value="1000" min="50" max="20000" step="50">
+        </label>
+        <label>With a real edge
+          <input type="number" id="g-n_signal" value="0" min="0" max="50" step="1">
+        </label>
+        <label>Edge size (per period)
+          <input type="number" id="g-signal_mu" value="0.002" step="0.0005">
+        </label>
+        <label>Drift (mu)
+          <input type="number" id="g-mu" value="0" step="0.0005">
+        </label>
+        <label>Volatility (sigma)
+          <input type="number" id="g-sigma" value="0.01" min="0.0001" step="0.001">
+        </label>
+        <label>Autocorrelation
+          <input type="number" id="g-autocorr" value="0" min="-0.99" max="0.99" step="0.05">
+        </label>
+        <label>Seed <span class="sub">blank = random</span>
+          <input type="number" id="g-seed" value="42" step="1">
+        </label>
+      </div>
+    </div>
+
+    <div id="pane-upload" class="pane" hidden>
+      <p class="hint">
+        One column per strategy variant, one row per period, values are returns
+        (not prices). Non-numeric columns are dropped automatically.
+      </p>
+      <div id="drop" class="drop">
+        <input type="file" id="file" accept=".csv,text/csv" hidden>
+        <p><strong>Drop a CSV here</strong> or <button type="button" id="browse" class="link">browse</button></p>
+        <p id="file-name" class="sub"></p>
+      </div>
+      <label class="inline">Date/index column <span class="sub">optional</span>
+        <input type="text" id="index-col" placeholder="e.g. date">
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Parameters</h2>
+    <div class="grid">
+      <label>CSCV blocks (S)
+        <input type="range" id="p-blocks" value="10" min="4" max="20" step="2">
+        <output id="blocks-out"></output>
+      </label>
+      <label>Periods per year
+        <input type="number" id="p-periods_per_year" value="252" min="1" step="1">
+      </label>
+      <label>Risk-free (per period)
+        <input type="number" id="p-risk_free" value="0" step="0.0001">
+      </label>
+      <label>Trials actually tried <span class="sub">blank = column count</span>
+        <input type="number" id="p-n_trials" placeholder="auto" min="1" step="1">
+      </label>
+      <label>Rows in table
+        <input type="number" id="p-top" value="10" min="1" max="100" step="1">
+      </label>
+    </div>
+    <p id="blocks-warn" class="warn" hidden></p>
+    <button id="run" class="run" disabled>Analyse</button>
+    <span id="run-status" class="sub"></span>
+  </section>
+
+  <section id="results" class="results" hidden>
+    <div id="preview-badge" class="badge" hidden>
+      Pre-computed example &mdash; press Analyse once the runtime is ready
+    </div>
+    <p id="notes" class="notes" hidden></p>
+    <div id="verdict" class="verdict"></div>
+    <div class="figures">
+      <div class="figure"><span class="label">Deflated Sharpe</span><strong id="fig-dsr">&mdash;</strong>
+        <span class="sub">of the best variant</span></div>
+      <div class="figure"><span class="label">PBO</span><strong id="fig-pbo">&mdash;</strong>
+        <span class="sub">chance the winner is luck</span></div>
+      <div class="figure"><span class="label">Best variant</span><strong id="fig-best">&mdash;</strong>
+        <span class="sub" id="fig-sharpe"></span></div>
+    </div>
+    <img id="chart" alt="Diagnostic chart: Sharpe vs deflated Sharpe, CSCV logit distribution, and in-sample vs out-of-sample scatter">
+    <details><summary>Full text report</summary><pre id="report"></pre></details>
+    <p><button id="download" class="link">Download JSON</button></p>
+  </section>
+
+  <section id="error" class="error" hidden></section>
+</main>
+
+<footer>
+  <a href="https://github.com/Githubneos/Backtest-Overfitting-Detector">Source on GitHub</a>
+  &middot; same code as <code>python -m overfit_detector</code>
+  &middot; <span id="version"></span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

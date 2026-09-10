@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .data import make_synthetic_strategies
+from .data import NotEnoughStrategies, make_synthetic_strategies, prepare_returns
 from .pbo import DEFAULT_BLOCKS
 from .report import build_report, format_report, plot_report
 
@@ -104,28 +104,14 @@ def _load(args: argparse.Namespace) -> pd.DataFrame:
         except (ValueError, TypeError):
             pass  # a non-date index is fine; it just cannot be order-checked
 
-    numeric = frame.select_dtypes("number")
-    dropped = [c for c in frame.columns if c not in numeric.columns]
-    if dropped:
-        print(
-            f"note: ignored {len(dropped)} non-numeric column(s): "
-            f"{', '.join(str(c) for c in dropped[:5])}",
-            file=sys.stderr,
-        )
-    frame = numeric.dropna(how="all", axis=1)
-    if frame.isna().any().any():
-        n_before = len(frame)
-        frame = frame.dropna()
-        print(
-            f"note: dropped {n_before - len(frame)} rows containing NaNs",
-            file=sys.stderr,
-        )
-    if frame.shape[1] < 2:
-        raise SystemExit(
-            f"error: {args.strategies_csv} has {frame.shape[1]} numeric column(s); "
-            "need at least 2 strategy variants (use --index-col if the first "
-            "column is a date)"
-        )
+    try:
+        frame, notes = prepare_returns(frame)
+    except NotEnoughStrategies as exc:
+        for note in exc.notes:
+            print(f"note: {note}", file=sys.stderr)
+        raise SystemExit(f"error: {args.strategies_csv} {exc}") from None
+    for note in notes:
+        print(f"note: {note}", file=sys.stderr)
     return frame
 
 

@@ -8,6 +8,9 @@ Two entry points:
 * :func:`load_yfinance_strategies` -- a grid of moving-average crossover
   variants on a real ticker, so the tool can be pointed at something real.
   Requires the optional ``[data]`` extra.
+
+:func:`prepare_returns` cleans an already-parsed frame from any of these (or
+from a user's own CSV) into the shape the analysis expects.
 """
 
 from __future__ import annotations
@@ -15,7 +18,24 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-__all__ = ["make_synthetic_strategies", "load_yfinance_strategies"]
+__all__ = [
+    "make_synthetic_strategies",
+    "load_yfinance_strategies",
+    "prepare_returns",
+    "NotEnoughStrategies",
+]
+
+
+class NotEnoughStrategies(ValueError):
+    """Fewer than two numeric columns survived cleaning.
+
+    Carries the notes accumulated before the failure so a caller can still
+    report what was discarded on the way there -- often the actual cause.
+    """
+
+    def __init__(self, message: str, notes: list[str]) -> None:
+        super().__init__(message)
+        self.notes = notes
 
 
 def make_synthetic_strategies(
@@ -144,3 +164,50 @@ def load_yfinance_strategies(
     if not columns:
         raise ValueError("no valid (fast, slow) window pairs were produced")
     return pd.DataFrame(columns).dropna()
+
+
+def prepare_returns(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """Coerce a parsed table into a numeric returns frame fit for analysis.
+
+    Drops non-numeric columns, all-NaN columns, and any row still holding a
+    NaN, since CSCV needs a complete rectangular panel.  Shared by the CLI and
+    the browser front end so both report the same problems the same way.
+
+    Parameters
+    ----------
+    frame : DataFrame
+        Rows = time, columns = strategy variants, as parsed from a CSV.
+
+    Returns
+    -------
+    (DataFrame, list of str)
+        The cleaned frame, and human-readable notes about what was discarded.
+
+    Raises
+    ------
+    NotEnoughStrategies
+        If fewer than two numeric strategy columns survive cleaning.
+    """
+    notes: list[str] = []
+
+    numeric = frame.select_dtypes("number")
+    dropped = [c for c in frame.columns if c not in numeric.columns]
+    if dropped:
+        notes.append(
+            f"ignored {len(dropped)} non-numeric column(s): "
+            f"{', '.join(str(c) for c in dropped[:5])}"
+        )
+
+    cleaned = numeric.dropna(how="all", axis=1)
+    if cleaned.isna().any().any():
+        n_before = len(cleaned)
+        cleaned = cleaned.dropna()
+        notes.append(f"dropped {n_before - len(cleaned)} rows containing NaNs")
+
+    if cleaned.shape[1] < 2:
+        raise NotEnoughStrategies(
+            f"has {cleaned.shape[1]} numeric column(s); need at least 2 strategy "
+            "variants (use --index-col if the first column is a date)",
+            notes,
+        )
+    return cleaned, notes
